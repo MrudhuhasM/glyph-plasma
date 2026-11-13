@@ -11,11 +11,13 @@ widget_id=io.github.glyphplasma.home
 widget_dir=$data_dir/plasma/plasmoids/$widget_id
 scheme=$data_dir/color-schemes/GlyphPlasma.colors
 wallpaper=$data_dir/wallpapers/GlyphMatrix.png
+style_dir=$data_dir/plasma/desktoptheme/glyph-plasma
 terminal=$data_dir/konsole/GlyphPlasma.colorscheme
+terminal_profile=$data_dir/konsole/GlyphPlasma.profile
 config_files=(kdeglobals plasmashellrc plasma-org.kde.plasma.desktop-appletsrc)
 appearance_files=(plasmarc kcminputrc kwinrc)
 config_files+=("${appearance_files[@]}")
-config_files+=(kglobalshortcutsrc)
+config_files+=(kglobalshortcutsrc kscreenlockerrc konsolerc)
 
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 require() {
@@ -77,6 +79,12 @@ if [[ $mode == --restore ]]; then
                 kglobalshortcutsrc)
                     [[ -f $backup/shortcuts-saved ]] || continue
                     ;;
+                kscreenlockerrc)
+                    [[ -f $backup/lock-saved ]] || continue
+                    ;;
+                konsolerc)
+                    [[ -f $backup/konsole-saved ]] || continue
+                    ;;
             esac
             if [[ -e $backup/$file || -L $backup/$file ]]; then
                 cp -a --remove-destination -- "$backup/$file" "$config_dir/$file"
@@ -92,6 +100,13 @@ if [[ $mode == --restore ]]; then
     if [[ -f $state_dir/terminal-owned ]]; then
         rm -f -- "$terminal" "$state_dir/terminal-owned"
     fi
+    if [[ -f $state_dir/profile-owned ]]; then
+        rm -f -- "$terminal_profile" "$state_dir/profile-owned"
+    fi
+    if [[ -f $state_dir/style-owned ]]; then
+        rm -rf -- "$style_dir"
+        rm -f -- "$state_dir/style-owned"
+    fi
     if [[ -d $backup ]]; then
         archive=$(mktemp -d "$state_dir/restored.XXXXXXXX")
         mv -- "$backup" "$archive/original"
@@ -102,7 +117,7 @@ if [[ $mode == --restore ]]; then
 fi
 
 if [[ $mode != --assets-only ]]; then
-    require plasma-apply-colorscheme plasma-apply-wallpaperimage kwriteconfig6
+    require plasma-apply-colorscheme plasma-apply-wallpaperimage plasma-apply-desktoptheme kwriteconfig6 kreadconfig6
     [[ -d /usr/share/icons/breeze-dark && -d /usr/share/icons/breeze_cursors ]] ||
         fail "Install the breeze, breeze-icons and breeze-cursors packages first."
     result=$(plasma evaluateScript 'if (!locked) print("GLYPH_READY");')
@@ -117,6 +132,15 @@ if [[ ! -f $state_dir/assets-owned ]]; then
 fi
 
 mkdir -p -- "$widget_dir/contents/ui" "$widget_dir/contents/config" "$(dirname -- "$scheme")" "$(dirname -- "$wallpaper")"
+if [[ ! -f $state_dir/style-owned ]]; then
+    [[ ! -e $style_dir && ! -L $style_dir ]] || fail "Plasma Style already exists: $style_dir"
+    touch "$state_dir/style-owned"
+fi
+mkdir -p -- "$style_dir/widgets" "$style_dir/solid/widgets" "$style_dir/opaque/widgets"
+install -m 644 -- "$source_dir/style/glyph-plasma/"{metadata.json,plasmarc} "$style_dir/"
+for variant in widgets solid/widgets opaque/widgets; do
+    install -m 644 -- "$source_dir/style/glyph-plasma/widgets/panel-background.svg" "$style_dir/$variant/"
+done
 install -m 644 -- "$source_dir/plasma/metadata.json" "$widget_dir/metadata.json"
 install -m 644 -- "$source_dir/plasma/contents/ui/"*.qml "$widget_dir/contents/ui/"
 install -m 644 -- "$source_dir/plasma/contents/config/main.xml" "$widget_dir/contents/config/"
@@ -129,6 +153,13 @@ if [[ -f $state_dir/terminal-owned ]]; then
     mkdir -p -- "$(dirname -- "$terminal")"
     install -m 644 -- "$source_dir/assets/GlyphPlasma.colorscheme" "$terminal"
 fi
+if [[ ! -f $state_dir/profile-owned ]]; then
+    [[ ! -e $terminal_profile && ! -L $terminal_profile ]] ||
+        fail "Konsole profile already exists: $terminal_profile"
+    touch "$state_dir/profile-owned"
+fi
+mkdir -p -- "$(dirname -- "$terminal_profile")"
+install -m 644 -- "$source_dir/assets/GlyphPlasma.profile" "$terminal_profile"
 
 if [[ $mode == --assets-only ]]; then
     printf 'Assets installed. Find Glyph Plasma in Colors and Glyph Home under Add Widgets.\n'
@@ -148,6 +179,8 @@ if [[ ! -d $backup ]]; then
     done
     touch "$staging/appearance-saved"
     touch "$staging/shortcuts-saved"
+    touch "$staging/lock-saved"
+    touch "$staging/konsole-saved"
     mv -- "$staging" "$backup"
     systemctl --user start plasma-plasmashell.service
     trap - EXIT
@@ -169,10 +202,25 @@ else
         fi
         touch "$backup/shortcuts-saved"
     fi
+    if [[ ! -f $backup/lock-saved ]]; then
+        if [[ -e $config_dir/kscreenlockerrc || -L $config_dir/kscreenlockerrc ]]; then
+            cp -a --remove-destination -- "$config_dir/kscreenlockerrc" "$backup/kscreenlockerrc"
+        fi
+        touch "$backup/lock-saved"
+    fi
+    if [[ ! -f $backup/konsole-saved ]]; then
+        if [[ -e $config_dir/konsolerc || -L $config_dir/konsolerc ]]; then
+            cp -a --remove-destination -- "$config_dir/konsolerc" "$backup/konsolerc"
+        fi
+        touch "$backup/konsole-saved"
+    fi
     systemctl --user restart plasma-plasmashell.service
 fi
 
 printf 'Original configuration saved at %s\n' "$backup"
+plasma-apply-desktoptheme glyph-plasma
+[[ $(kreadconfig6 --file plasmarc --group Theme --key name) == glyph-plasma ]] ||
+    fail "Plasma did not save the Glyph style selection. Run with --restore to revert."
 ready=false
 for ((attempt = 0; attempt < 30; attempt++)); do
     if result=$(plasma evaluateScript 'if (desktops().some(d => d.screen === 0)) print("GLYPH_READY");' 2>/dev/null) &&
@@ -192,10 +240,14 @@ plasma-apply-colorscheme GlyphPlasma
 plasma-apply-colorscheme --accent-color '#e33141'
 kwriteconfig6 --file kdeglobals --group KDE --key widgetStyle Breeze
 kwriteconfig6 --file kdeglobals --group Icons --key Theme breeze-dark
-kwriteconfig6 --file plasmarc --group Theme --key name default
 kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme breeze_cursors
 kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key library org.kde.breeze
 kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme Breeze
 plasma-apply-wallpaperimage "$wallpaper"
+kwriteconfig6 --file kscreenlockerrc --group Greeter --key WallpaperPlugin org.kde.image
+kwriteconfig6 --file kscreenlockerrc --group Greeter --group Wallpaper --group org.kde.image \
+    --group General --key Image "$wallpaper"
+kwriteconfig6 --file konsolerc --group 'Desktop Entry' --key DefaultProfile GlyphPlasma.profile
+kwriteconfig6 --file konsolerc --group LightDarkTheme --key SyncProfileWithSystemTheme false
 printf 'Glyph Plasma applied. Use bash install.sh --restore to roll back.\n'
 printf 'Log out and back in to apply the application style, icons, cursor and decorations throughout the session.\n'

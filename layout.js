@@ -1,16 +1,16 @@
 function applyGlyphLayout(replacePanels) {
     const home = "io.github.glyphplasma.home";
     const railWidgets = [
-        "org.kde.plasma.kickoff",
-        "org.kde.plasma.pager",
-        "org.kde.plasma.icontasks",
-        "org.kde.plasma.panelspacer",
-        "org.kde.plasma.digitalclock",
-        "org.kde.plasma.panelspacer",
-        "org.kde.plasma.systemtray",
-        home
+        ["org.kde.plasma.kickoff"],
+        [home, "pager"],
+        ["org.kde.plasma.icontasks"],
+        ["org.kde.plasma.panelspacer"],
+        [home, "clock"],
+        ["org.kde.plasma.panelspacer"],
+        ["org.kde.plasma.systemtray"],
+        [home, "quick"]
     ];
-    for (const id of [home, ...railWidgets]) {
+    for (const [id] of railWidgets) {
         if (!knownWidgetTypes.includes(id))
             throw new Error("Missing Plasma widget: " + id);
     }
@@ -18,6 +18,17 @@ function applyGlyphLayout(replacePanels) {
     const desktop = desktopsForActivity(currentActivity()).find(d => d.screen === 0);
     if (!desktop)
         throw new Error("No desktop found on the primary screen.");
+
+    function addRailWidget(panel, id, role) {
+        const widget = panel.addWidget(id);
+        if (!widget || !widget.id)
+            throw new Error("Could not add " + (role || id));
+        if (role) {
+            widget.currentConfigGroup = ["General"];
+            widget.writeConfig("railRole", role);
+        }
+        return widget;
+    }
 
     const screen = screenGeometry(0);
     if (!desktop.widgets(home).length) {
@@ -39,11 +50,8 @@ function applyGlyphLayout(replacePanels) {
             rail.screen = 0;
             rail.height = 42;
             rail.lengthMode = "fill";
-            for (const id of railWidgets) {
-                const widget = rail.addWidget(id);
-                if (!widget || !widget.id)
-                    throw new Error("Could not add " + id);
-            }
+            for (const [id, role] of railWidgets)
+                addRailWidget(rail, id, role);
             rail.writeConfig("GlyphPlasmaRail", true);
         } catch (error) {
             rail.remove();
@@ -51,22 +59,23 @@ function applyGlyphLayout(replacePanels) {
         }
     }
     rail.floating = true;
-    let quick = rail.widgets(home)[0];
-    if (!quick) {
-        quick = rail.addWidget(home);
-        if (!quick || !quick.id)
-            throw new Error("Could not add Glyph Quick.");
+    rail.opacity = "opaque";
+    const roles = {};
+    for (const widget of rail.widgets(home)) {
+        widget.currentConfigGroup = ["General"];
+        roles[widget.readConfig("railRole", "quick")] = widget;
     }
-    const clock = rail.widgets("org.kde.plasma.digitalclock")[0];
-    const spacers = rail.widgets("org.kde.plasma.panelspacer");
-    if (clock && spacers.length === 0) {
-        const tray = rail.widgets("org.kde.plasma.systemtray")[0];
-        if (tray && tray.index < clock.index)
-            tray.index = clock.index;
-        for (const index of [clock.index, clock.index + 2]) {
-            const spacer = rail.addWidget("org.kde.plasma.panelspacer");
-            if (spacer && spacer.id)
-                spacer.index = index;
+    for (const [role, oldType] of [
+        ["pager", "org.kde.plasma.pager"],
+        ["clock", "org.kde.plasma.digitalclock"],
+        ["quick", ""]
+    ]) {
+        const oldWidget = oldType ? rail.widgets(oldType)[0] : null;
+        if (!roles[role])
+            roles[role] = addRailWidget(rail, home, role);
+        if (oldWidget) {
+            roles[role].index = oldWidget.index;
+            oldWidget.remove();
         }
     }
     if (replacePanels) {
@@ -75,6 +84,11 @@ function applyGlyphLayout(replacePanels) {
                 panel.remove();
         }
     }
-    quick.globalShortcut = "Meta+A";
+    if (rail.widgets("org.kde.plasma.panelspacer").length === 0) {
+        const position = roles.clock.index;
+        addRailWidget(rail, "org.kde.plasma.panelspacer").index = position;
+        addRailWidget(rail, "org.kde.plasma.panelspacer").index = position + 2;
+    }
+    roles.quick.globalShortcut = "Meta+A";
     print("GLYPH_LAYOUT_APPLIED");
 }

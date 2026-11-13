@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <g fill="#111111">
+    <rect id="center" x="20" y="20" width="24" height="24"/>
+    <rect id="top" x="20" y="0" width="24" height="20"/>
+    <rect id="bottom" x="20" y="44" width="24" height="20"/>
+    <rect id="left" x="0" y="20" width="20" height="24"/>
+    <rect id="right" x="44" y="20" width="20" height="24"/>
+    <path id="topleft" d="M20 20H0A20 20 0 0 1 20 0Z"/>
+    <path id="topright" d="M44 20V0a20 20 0 0 1 20 20Z"/>
+    <path id="bottomleft" d="M20 44v20A20 20 0 0 1 0 44Z"/>
+    <path id="bottomright" d="M44 44h20a20 20 0 0 1-20 20Z"/>
+  </g>
+  <g fill="#ff00ff">
+    <rect id="hint-top-margin" x="28" y="0" width="1" height="5"/>
+    <rect id="hint-bottom-margin" x="28" y="59" width="1" height="5"/>
+    <rect id="hint-left-margin" x="0" y="28" width="4" height="1"/>
+    <rect id="hint-right-margin" x="60" y="28" width="4" height="1"/>
+    <rect id="hint-stretch-borders" x="30" y="30" width="1" height="1"/>
+  </g>
+</svg>

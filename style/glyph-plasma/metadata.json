@@ -1,0 +1,10 @@
+{
+    "KPlugin": {
+        "Id": "glyph-plasma",
+        "Name": "Glyph Plasma",
+        "Description": "Matte black panels with rounded ends",
+        "Version": "1.0",
+        "License": "GPL-3.0-only"
+    },
+    "X-Plasma-API": "5.0"
+}

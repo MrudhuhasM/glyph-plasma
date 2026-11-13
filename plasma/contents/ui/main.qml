@@ -12,14 +12,34 @@ PlasmoidItem {
         || Plasmoid.location === PlasmaCore.Types.BottomEdge
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
     Plasmoid.icon: "view-dashboard"
-    activationTogglesExpanded: inPanel
-    toolTipMainText: inPanel ? "Glyph Quick" : "Glyph Home"
+    readonly property string railRole: inPanel ? Plasmoid.configuration.railRole : ""
+    activationTogglesExpanded: inPanel && railRole !== "pager"
+    toolTipMainText: !inPanel ? "Glyph Home" : railRole === "clock" ? Qt.formatDateTime(now)
+        : railRole === "pager" ? "Virtual desktops" : "Glyph Quick"
     preferredRepresentation: inPanel ? compactRepresentation : fullRepresentation
-    compactRepresentation: Controls.ToolButton {
-        text: "Glyph Quick"
-        display: Controls.AbstractButton.IconOnly
-        icon.name: "view-dashboard"
-        onClicked: root.expanded = !root.expanded
+    compactRepresentation: Loader {
+        Layout.minimumWidth: item?.Layout.minimumWidth ?? 22
+        Layout.minimumHeight: item?.Layout.minimumHeight ?? 28
+        Layout.preferredHeight: item?.Layout.preferredHeight ?? 28
+        sourceComponent: root.railRole === "pager" ? pagerView
+            : root.railRole === "clock" ? clockView : quickButton
+    }
+    Component { id: pagerView; RailPager {} }
+    Component {
+        id: clockView
+        RailClock {
+            now: root.now
+            TapHandler { onTapped: root.expanded = !root.expanded }
+        }
+    }
+    Component {
+        id: quickButton
+        Controls.ToolButton {
+            text: "Glyph Quick"
+            display: Controls.AbstractButton.IconOnly
+            icon.name: "view-dashboard"
+            onClicked: root.expanded = !root.expanded
+        }
     }
 
     property date now: new Date()
@@ -31,7 +51,7 @@ PlasmoidItem {
 
     Timer {
         interval: 1000
-        running: !root.inPanel
+        running: !root.inPanel || root.railRole === "clock"
         repeat: true
         onTriggered: root.now = new Date()
     }
@@ -41,8 +61,10 @@ PlasmoidItem {
         Layout.minimumHeight: root.inPanel ? 340 : 140
         Layout.preferredWidth: root.inPanel ? 405 : 1050
         Layout.preferredHeight: root.inPanel ? 450 : 490
-        sourceComponent: root.inPanel ? quickView : homeView
+        sourceComponent: !root.inPanel ? homeView : root.railRole === "clock" ? calendarView : quickView
     }
+
+    Component { id: calendarView; CalendarCard {} }
 
     Component {
         id: quickView

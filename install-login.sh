@@ -5,17 +5,37 @@ source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 theme_dir=/usr/share/sddm/themes/glyph-plasma
 drop_in=/etc/sddm.conf.d/zz-glyph-plasma.conf
 marker=$theme_dir/.glyph-plasma-owned
+source_theme=$source_dir/login/glyph
 
 fail() { printf '%s\n' "$*" >&2; exit 1; }
+check_theme() {
+    local directory=$1 entry
+    [[ -r $directory/metadata.desktop ]] || fail "Missing or unreadable: $directory/metadata.desktop"
+    entry=$(awk -F= '$1 == "MainScript" { sub(/\r$/, "", $2); print $2; exit }' "$directory/metadata.desktop")
+    [[ $entry == Main.qml && -r $directory/$entry ]] ||
+        fail "Expected a readable $directory/Main.qml. Run git pull from the Glyph Plasma checkout."
+    [[ -r $directory/theme.conf ]] || fail "Missing or unreadable: $directory/theme.conf"
+}
 mode=${1:---install}
 case "$mode" in
     --help|-h)
-        printf 'Usage: sudo bash install-login.sh [--restore]\n'
+        printf 'Usage: bash install-login.sh --preview | --check | sudo bash install-login.sh [--restore]\n'
         exit 0 ;;
-    --install|--restore) ;;
-    *) fail "Usage: sudo bash install-login.sh [--restore]" ;;
+    --install|--restore|--preview|--check) ;;
+    *) fail "See bash install-login.sh --help." ;;
 esac
 [[ $# -le 1 ]] || fail "Pass at most one option."
+if [[ $mode == --preview ]]; then
+    [[ $EUID -ne 0 ]] || fail "Preview the theme as your desktop user."
+    command -v sddm-greeter-qt6 >/dev/null || fail "The Qt 6 SDDM greeter is required."
+    check_theme "$source_theme"
+    exec sddm-greeter-qt6 --test-mode --theme "$source_theme"
+fi
+if [[ $mode == --check ]]; then
+    check_theme "$theme_dir"
+    printf 'Installed theme entry point: %s/Main.qml\n' "$theme_dir"
+    exit 0
+fi
 [[ $EUID -eq 0 ]] || fail "Run this script with sudo."
 exec 9>/run/lock/glyph-plasma-sddm.lock
 flock -n 9 || fail "Another Glyph login installer is running."
@@ -30,6 +50,7 @@ fi
 
 command -v sddm-greeter-qt6 >/dev/null || fail "The Qt 6 SDDM greeter is required."
 systemctl is-active --quiet sddm.service || fail "SDDM is not the active display manager."
+check_theme "$source_theme"
 if [[ -f /etc/sddm.conf ]] && awk '
     /^[[:space:]]*\[/ { theme = ($0 ~ /^[[:space:]]*\[Theme\][[:space:]]*$/) }
     theme && /^[[:space:]]*Current[[:space:]]*=/ { found = 1 }
@@ -44,11 +65,14 @@ if [[ -e $drop_in || -L $drop_in ]]; then
     [[ -f $marker && ! -L $drop_in ]] || fail "SDDM configuration already exists: $drop_in"
 fi
 
-mkdir -p -- "$theme_dir/fonts" "$(dirname -- "$drop_in")"
+install -d -m 755 -- "$theme_dir" "$theme_dir/fonts"
+mkdir -p -- "$(dirname -- "$drop_in")"
 touch "$marker"
-install -m 644 -- "$source_dir/login/glyph/"Main.qml "$source_dir/login/glyph/"metadata.desktop \
-    "$source_dir/login/glyph/"theme.conf "$theme_dir/"
-install -m 644 -- "$source_dir/login/glyph/fonts/"* "$theme_dir/fonts/"
+install -m 644 -- "$source_theme/"{Main.qml,metadata.desktop,theme.conf} "$theme_dir/"
+install -m 644 -- "$source_theme/fonts/"* "$theme_dir/fonts/"
+check_theme "$theme_dir"
+runuser -u sddm -- test -r "$theme_dir/Main.qml" ||
+    fail "The sddm account cannot read $theme_dir/Main.qml."
 staging=$(mktemp "${drop_in}.XXXXXXXX")
 trap 'rm -f -- "$staging"' EXIT
 printf '[Theme]\nCurrent=glyph-plasma\n' > "$staging"
