@@ -47,6 +47,7 @@ function applyGlyphLayout(replacePanels) {
             throw error;
         }
     }
+    rail.floating = true;
     if (replacePanels) {
         for (const panel of existing) {
             if (panel.id !== rail.id && panel.screen === 0)
