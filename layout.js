@@ -4,8 +4,11 @@ function applyGlyphLayout(replacePanels) {
         "org.kde.plasma.kickoff",
         "org.kde.plasma.pager",
         "org.kde.plasma.icontasks",
+        "org.kde.plasma.panelspacer",
+        "org.kde.plasma.digitalclock",
+        "org.kde.plasma.panelspacer",
         "org.kde.plasma.systemtray",
-        "org.kde.plasma.digitalclock"
+        home
     ];
     for (const id of [home, ...railWidgets]) {
         if (!knownWidgetTypes.includes(id))
@@ -19,7 +22,7 @@ function applyGlyphLayout(replacePanels) {
     const screen = screenGeometry(0);
     if (!desktop.widgets(home).length) {
         const width = Math.min(1380, Math.round(screen.width * 0.85));
-        const height = Math.min(Math.round(width * 410 / 1050), Math.round(screen.height * 0.74));
+        const height = Math.min(Math.round(width * 490 / 1050), Math.round(screen.height * 0.74));
         const x = Math.max(56, Math.round(screen.width * 0.10));
         const y = Math.round(screen.height * 0.12);
         const widget = desktop.addWidget(home, x, y, width, height);
@@ -48,11 +51,30 @@ function applyGlyphLayout(replacePanels) {
         }
     }
     rail.floating = true;
+    let quick = rail.widgets(home)[0];
+    if (!quick) {
+        quick = rail.addWidget(home);
+        if (!quick || !quick.id)
+            throw new Error("Could not add Glyph Quick.");
+    }
+    const clock = rail.widgets("org.kde.plasma.digitalclock")[0];
+    const spacers = rail.widgets("org.kde.plasma.panelspacer");
+    if (clock && spacers.length === 0) {
+        const tray = rail.widgets("org.kde.plasma.systemtray")[0];
+        if (tray && tray.index < clock.index)
+            tray.index = clock.index;
+        for (const index of [clock.index, clock.index + 2]) {
+            const spacer = rail.addWidget("org.kde.plasma.panelspacer");
+            if (spacer && spacer.id)
+                spacer.index = index;
+        }
+    }
     if (replacePanels) {
         for (const panel of existing) {
             if (panel.id !== rail.id && panel.screen === 0)
                 panel.remove();
         }
     }
+    quick.globalShortcut = "Meta+A";
     print("GLYPH_LAYOUT_APPLIED");
 }

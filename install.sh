@@ -15,6 +15,7 @@ terminal=$data_dir/konsole/GlyphPlasma.colorscheme
 config_files=(kdeglobals plasmashellrc plasma-org.kde.plasma.desktop-appletsrc)
 appearance_files=(plasmarc kcminputrc kwinrc)
 config_files+=("${appearance_files[@]}")
+config_files+=(kglobalshortcutsrc)
 
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 require() {
@@ -57,6 +58,12 @@ if [[ $mode != --assets-only ]]; then
     plasma shell >/dev/null || fail "Could not connect to Plasma Shell."
 fi
 
+if [[ $mode != --restore ]]; then
+    require pacman
+    pacman -Q plasma-workspace plasma-pa powerdevil libksysguard ksystemstats >/dev/null ||
+        fail "Install the missing KDE audio, brightness or sensor packages and rerun."
+fi
+
 if [[ $mode == --restore ]]; then
     [[ -d $backup || -f $state_dir/assets-owned ]] || fail "No Glyph installation was found."
     systemctl --user stop plasma-plasmashell.service
@@ -66,6 +73,9 @@ if [[ $mode == --restore ]]; then
             case "$file" in
                 plasmarc|kcminputrc|kwinrc)
                     [[ -f $backup/appearance-saved ]] || continue
+                    ;;
+                kglobalshortcutsrc)
+                    [[ -f $backup/shortcuts-saved ]] || continue
                     ;;
             esac
             if [[ -e $backup/$file || -L $backup/$file ]]; then
@@ -106,9 +116,10 @@ if [[ ! -f $state_dir/assets-owned ]]; then
     touch "$state_dir/assets-owned"
 fi
 
-mkdir -p -- "$widget_dir/contents/ui" "$(dirname -- "$scheme")" "$(dirname -- "$wallpaper")"
+mkdir -p -- "$widget_dir/contents/ui" "$widget_dir/contents/config" "$(dirname -- "$scheme")" "$(dirname -- "$wallpaper")"
 install -m 644 -- "$source_dir/plasma/metadata.json" "$widget_dir/metadata.json"
 install -m 644 -- "$source_dir/plasma/contents/ui/"*.qml "$widget_dir/contents/ui/"
+install -m 644 -- "$source_dir/plasma/contents/config/main.xml" "$widget_dir/contents/config/"
 install -m 644 -- "$source_dir/assets/GlyphPlasma.colors" "$scheme"
 install -m 644 -- "$source_dir/assets/GlyphMatrix.png" "$wallpaper"
 if [[ ! -e $terminal && ! -L $terminal ]]; then
@@ -136,6 +147,7 @@ if [[ ! -d $backup ]]; then
         fi
     done
     touch "$staging/appearance-saved"
+    touch "$staging/shortcuts-saved"
     mv -- "$staging" "$backup"
     systemctl --user start plasma-plasmashell.service
     trap - EXIT
@@ -150,6 +162,12 @@ else
             fi
         done
         touch "$backup/appearance-saved"
+    fi
+    if [[ ! -f $backup/shortcuts-saved ]]; then
+        if [[ -e $config_dir/kglobalshortcutsrc || -L $config_dir/kglobalshortcutsrc ]]; then
+            cp -a --remove-destination -- "$config_dir/kglobalshortcutsrc" "$backup/kglobalshortcutsrc"
+        fi
+        touch "$backup/shortcuts-saved"
     fi
     systemctl --user restart plasma-plasmashell.service
 fi

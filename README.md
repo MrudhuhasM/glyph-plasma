@@ -2,17 +2,17 @@
 
 A Nothing OS–inspired desktop for CachyOS and KDE Plasma 6, based on the visual design of [Nebelung-cloud/glyph-rice](https://github.com/Nebelung-cloud/glyph-rice).
 
-- A large dot-matrix clock, greeting, calendar, and animated seconds ring.
-- A left rail with KDE's application launcher, virtual desktop pager, task manager, system tray, and clock. The tray provides your installed KDE network, audio, power, and notification controls.
+- Glyph Home with a large dot-matrix clock, greeting, calendar, animated seconds ring, MPRIS media card, and CPU, memory, and GPU readings with a rolling 60-second CPU graph.
+- A left rail with KDE's launcher, pager, task manager, centered clock, and tray. Open **Glyph Quick** from the rail or with `Meta+A` for volume and mute, per-display brightness, media controls, and a 25-minute focus countdown.
 - A charcoal and red KDE color scheme and a dotted wallpaper.
 - Matching Breeze application controls, window decorations, icons and cursor, with a Glyph color scheme for Konsole.
 - The original Glyph login screen as an optional Qt 6 SDDM theme.
 
-The original's custom media and weather cards, edge OSD, device integrations, and palette switcher are outside this port. KRunner, Spectacle, and Klipper remain available through KDE's configured shortcuts.
+See [upstream feature coverage](PORTING.md) for the current Plasma equivalents and remaining work.
 
 ## Install on CachyOS
 
-Open Konsole from your running Plasma 6 desktop. The automatic layout requires Plasma's systemd user session and the stock Plasma widgets shipped with the CachyOS KDE edition.
+Open Konsole from your running Plasma 6 desktop. The automatic layout requires Plasma's systemd user session and the stock Plasma widgets shipped with the CachyOS KDE edition. The dashboard uses KDE's `plasma-pa`, `powerdevil`, `libksysguard`, and `ksystemstats` packages. The new QML integrations were checked against Plasma 6.7 APIs.
 
 ```bash
 git clone https://github.com/MrudhuhasM/glyph-plasma.git
