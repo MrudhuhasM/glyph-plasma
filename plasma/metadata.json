@@ -1,0 +1,13 @@
+{
+    "KPlugin": {
+        "Id": "io.github.glyphplasma.home",
+        "Name": "Glyph Home",
+        "Description": "A dot-matrix clock and calendar for the Plasma desktop",
+        "Icon": "preferences-system-time",
+        "Version": "1.0.0",
+        "License": "GPL-3.0-only",
+        "Category": "Date and Time"
+    },
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0"
+}
